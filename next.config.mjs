@@ -10,12 +10,8 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL', // Allow embedding in iframes
-          },
-          {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors *", // Allow all origins to embed
+            value: "frame-ancestors 'self' *", // Allow all origins to embed
           },
         ],
       },
