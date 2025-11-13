@@ -6,12 +6,13 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Apply these headers to all routes
-        source: '/:path*',
+        source: "/:path*",
         headers: [
+          // Ne pas définir X-Frame-Options pour permettre l'embedding
+          // Utiliser Content-Security-Policy pour autoriser tous les domaines
           {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' *", // Allow all origins to embed
+            key: "Content-Security-Policy",
+            value: "frame-ancestors *", // Autorise l'embedding depuis tous les domaines
           },
         ],
       },
