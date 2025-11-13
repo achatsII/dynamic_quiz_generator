@@ -1,0 +1,5 @@
+{
+  "name": "Dynamic Quiz Builder",
+  "description": "An application for administrators to create quizzes from raw data and for users to take them. Results are stored and displayed on an admin dashboard.",
+  "requestFramePermissions": []
+}
