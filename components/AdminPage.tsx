@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { Quiz, QuizResult, Question } from '../types';
 import { createQuiz, getAllResults, getAllQuizzes } from '../services/apiService';
 
@@ -88,8 +88,8 @@ const AdminPage: React.FC = () => {
       const response = await createQuiz({ title: quizTitle, questions });
       if (response.success && response.results.length > 0) {
         const quizId = response.results[0].inserted_id;
-        const link = `#/quiz/${quizId}`;
-        const shareableLink = `${window.location.origin}${window.location.pathname}#/shared/${quizId}`;
+        const link = `/quiz/${quizId}`;
+        const shareableLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/shared/${quizId}`;
         setCreatedQuizLink(link);
         setCreatedShareableLink(shareableLink);
         setQuizTitle('');
@@ -186,14 +186,39 @@ const AdminPage: React.FC = () => {
             <div className="overflow-y-auto max-h-[300px] pr-2">
               {quizzes.length > 0 ? (
                 <ul className="divide-y divide-slate-200">
-                  {quizzes.map(quiz => (
-                    <li key={quiz._id} className="py-3 flex justify-between items-center">
-                      <span className="font-medium text-slate-800">{quiz.title}</span>
-                      <Link to={`/quiz/${quiz._id}`} className="text-sm bg-indigo-100 text-indigo-700 font-semibold py-1 px-3 rounded-full hover:bg-indigo-200">
-                        Ouvrir
-                      </Link>
-                    </li>
-                  ))}
+                  {quizzes.map(quiz => {
+                    const shareableLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/shared/${quiz._id}`;
+                    return (
+                      <li key={quiz._id} className="py-4 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-slate-800">{quiz.title}</span>
+                          <Link href={`/quiz/${quiz._id}`} className="text-sm bg-indigo-100 text-indigo-700 font-semibold py-1 px-3 rounded-full hover:bg-indigo-200">
+                            Ouvrir
+                          </Link>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500 font-semibold">Lien partageable :</span>
+                          <input 
+                            type="text" 
+                            readOnly 
+                            value={shareableLink} 
+                            className="flex-1 px-2 py-1 text-xs border border-slate-200 bg-slate-50 rounded text-slate-600 font-mono" 
+                            onClick={(e) => (e.target as HTMLInputElement).select()} 
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(shareableLink);
+                              // Optional: show a toast notification
+                            }}
+                            className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1 px-3 rounded"
+                            title="Copier le lien"
+                          >
+                            📋 Copier
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : <p className="text-slate-500">Aucun quiz créé pour le moment.</p>}
             </div>

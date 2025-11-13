@@ -1,11 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { getPublicQuiz, submitQuizResult } from '../services/apiService';
 import { Quiz, UserAnswer } from '../types';
 
-const PublicQuiz: React.FC = () => {
-  const { quizId } = useParams<{ quizId: string }>();
+interface PublicQuizProps {
+  quizId?: string;
+}
+
+const PublicQuiz: React.FC<PublicQuizProps> = ({ quizId: propQuizId }) => {
+  // Support both Next.js prop and React Router param (for backwards compatibility)
+  const quizId = propQuizId;
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [userName, setUserName] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
