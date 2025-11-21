@@ -22,6 +22,7 @@ const PublicQuiz: React.FC<PublicQuizProps> = ({ quizId: propQuizId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [answerStatus, setAnswerStatus] = useState<'correct' | 'incorrect' | null>(null);
 
   useEffect(() => {
     const fetchQuizData = async () => {
@@ -67,6 +68,8 @@ const PublicQuiz: React.FC<PublicQuizProps> = ({ quizId: propQuizId }) => {
     if (isCorrect) {
       setScore(prev => prev + 1);
     }
+
+    setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
     
     setUserAnswers(prev => [...prev, {
       questionIndex: currentQuestionIndex,
@@ -81,6 +84,7 @@ const PublicQuiz: React.FC<PublicQuizProps> = ({ quizId: propQuizId }) => {
     if (!quiz) return;
     setIsAnswered(false);
     setSelectedAnswerIndex(null);
+    setAnswerStatus(null);
 
     if (currentQuestionIndex < quiz.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -162,6 +166,7 @@ const PublicQuiz: React.FC<PublicQuizProps> = ({ quizId: propQuizId }) => {
   }
 
   const currentQuestion = quiz.questions[currentQuestionIndex];
+  const correctOption = currentQuestion.answerOptions.find(o => o.isCorrect);
   const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
 
   return (
@@ -190,10 +195,29 @@ const PublicQuiz: React.FC<PublicQuizProps> = ({ quizId: propQuizId }) => {
           ))}
         </div>
         
+        {isAnswered && answerStatus && (
+          <div
+            className={`mt-6 p-4 rounded-lg border ${
+              answerStatus === 'correct'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            } animate-fade-in`}
+          >
+            <p className="font-semibold text-lg">
+              {answerStatus === 'correct' ? '✅ Bonne réponse !' : '❌ Mauvaise réponse.'}
+            </p>
+            {answerStatus === 'incorrect' && correctOption && (
+              <p className="mt-2 text-sm text-slate-700">
+                Bonne réponse attendue : <span className="font-semibold">{correctOption.text}</span>
+              </p>
+            )}
+          </div>
+        )}
+        
         {isAnswered && (
           <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-lg animate-fade-in">
             <h3 className="font-bold text-slate-800">Explication :</h3>
-            <p className="text-slate-600 mt-2">{currentQuestion.answerOptions.find(o => o.isCorrect)?.rationale}</p>
+            <p className="text-slate-600 mt-2">{correctOption?.rationale || 'Aucune explication fournie pour cette question.'}</p>
           </div>
         )}
 
