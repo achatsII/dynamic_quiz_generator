@@ -1,4 +1,4 @@
-import { Quiz, QuizResult, ApiQuizCreateResponse, ApiResultCreateResponse, ApiQuizGetResponse, ApiResultsGetAllResponse, ApiQuizzesGetAllResponse } from '../types';
+import { Quiz, QuizResult, ApiQuizCreateResponse, ApiQuizUpdateResponse, ApiResultCreateResponse, ApiQuizGetResponse, ApiResultsGetAllResponse, ApiQuizzesGetAllResponse } from '../types';
 
 // All requests go through Next.js API routes (token secured on server)
 const API_PREFIX = '/api';
@@ -10,6 +10,16 @@ export const createQuiz = async (quiz: Omit<Quiz, '_id'>): Promise<ApiQuizCreate
     body: JSON.stringify(quiz),
   });
   if (!response.ok) throw new Error('Failed to create quiz');
+  return response.json();
+};
+
+export const updateQuiz = async (quizId: string, quiz: Omit<Quiz, '_id'>): Promise<ApiQuizUpdateResponse> => {
+  const response = await fetch(`${API_PREFIX}/quiz/${quizId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(quiz),
+  });
+  if (!response.ok) throw new Error('Failed to update quiz');
   return response.json();
 };
 

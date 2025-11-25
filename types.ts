@@ -44,6 +44,11 @@ export interface ApiQuizCreateResponse {
   }[];
 }
 
+export interface ApiQuizUpdateResponse {
+  success: boolean;
+  message?: string;
+}
+
 export interface ApiResultCreateResponse {
   success: boolean;
   results: {

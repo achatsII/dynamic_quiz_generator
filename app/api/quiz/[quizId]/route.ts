@@ -29,3 +29,40 @@ export async function GET(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// PUT update quiz by ID
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ quizId: string }> }
+) {
+  const { quizId } = await params;
+  
+  try {
+    const quiz = await request.json();
+
+    const response = await fetch(
+      `${process.env.API_BASE_URL}/data/${process.env.QUIZ_DATA_TYPE}/${quizId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${process.env.BEARER_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: `Quiz: ${quiz.title}`,
+          json_data: { ...quiz, app_identifier: process.env.APP_IDENTIFIER },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Failed to update quiz' }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error updating quiz:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

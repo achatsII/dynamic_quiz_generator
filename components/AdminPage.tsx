@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Quiz, QuizResult, Question } from '../types';
-import { createQuiz, getAllResults, getAllQuizzes } from '../services/apiService';
+import { createQuiz, updateQuiz, getAllResults, getAllQuizzes } from '../services/apiService';
 
 const AdminPage: React.FC = () => {
-  const [password, setPassword] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [error, setError] = useState('');
 
   const [quizTitle, setQuizTitle] = useState('');
@@ -19,22 +17,17 @@ const AdminPage: React.FC = () => {
   const [results, setResults] = useState<QuizResult[]>([]);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchResults();
-      fetchQuizzes();
-    }
-  }, [isLoggedIn]);
+  // Édition de quiz
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [editQuizTitle, setEditQuizTitle] = useState('');
+  const [editQuizQuestions, setEditQuizQuestions] = useState<Question[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === 'admin123') {
-      setIsLoggedIn(true);
-      setError('');
-    } else {
-      setError('Mot de passe incorrect.');
-    }
-  };
+  useEffect(() => {
+    fetchResults();
+    fetchQuizzes();
+  }, []);
   
   const fetchQuizzes = async () => {
     setIsLoadingQuizzes(true);
@@ -105,29 +98,124 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  if (!isLoggedIn) {
-    return (
-      <div className="max-w-md mx-auto mt-10 p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-2xl font-bold text-center mb-6">Accès Administrateur</h1>
-        <form onSubmit={handleLogin}>
-          <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">Mot de passe</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            Connexion
-          </button>
-        </form>
-      </div>
-    );
-  }
+  const handleStartEdit = (quiz: Quiz & { _id: string }) => {
+    setEditingQuizId(quiz._id);
+    setEditQuizTitle(quiz.title);
+    setEditQuizQuestions(JSON.parse(JSON.stringify(quiz.questions))); // Deep copy
+    setError('');
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditDialogOpen(false);
+    setEditingQuizId(null);
+    setEditQuizTitle('');
+    setEditQuizQuestions([]);
+    setError('');
+  };
+
+  const handleUpdateQuestion = (questionIndex: number, field: keyof Question, value: any) => {
+    const updatedQuestions = [...editQuizQuestions];
+    if (field === 'question' || field === 'hint') {
+      updatedQuestions[questionIndex] = { ...updatedQuestions[questionIndex], [field]: value };
+    }
+    setEditQuizQuestions(updatedQuestions);
+  };
+
+  const handleUpdateAnswerOption = (questionIndex: number, optionIndex: number, field: keyof Question['answerOptions'][0], value: any) => {
+    const updatedQuestions = [...editQuizQuestions];
+    updatedQuestions[questionIndex] = {
+      ...updatedQuestions[questionIndex],
+      answerOptions: updatedQuestions[questionIndex].answerOptions.map((opt, idx) =>
+        idx === optionIndex ? { ...opt, [field]: value } : opt
+      )
+    };
+    setEditQuizQuestions(updatedQuestions);
+  };
+
+  const handleAddQuestion = () => {
+    setEditQuizQuestions([
+      ...editQuizQuestions,
+      {
+        question: '',
+        answerOptions: [
+          { text: '', rationale: '', isCorrect: true },
+          { text: '', rationale: '', isCorrect: false }
+        ],
+        hint: ''
+      }
+    ]);
+  };
+
+  const handleRemoveQuestion = (questionIndex: number) => {
+    setEditQuizQuestions(editQuizQuestions.filter((_, idx) => idx !== questionIndex));
+  };
+
+  const handleAddAnswerOption = (questionIndex: number) => {
+    const updatedQuestions = [...editQuizQuestions];
+    updatedQuestions[questionIndex] = {
+      ...updatedQuestions[questionIndex],
+      answerOptions: [
+        ...updatedQuestions[questionIndex].answerOptions,
+        { text: '', rationale: '', isCorrect: false }
+      ]
+    };
+    setEditQuizQuestions(updatedQuestions);
+  };
+
+  const handleRemoveAnswerOption = (questionIndex: number, optionIndex: number) => {
+    const updatedQuestions = [...editQuizQuestions];
+    if (updatedQuestions[questionIndex].answerOptions.length > 1) {
+      updatedQuestions[questionIndex] = {
+        ...updatedQuestions[questionIndex],
+        answerOptions: updatedQuestions[questionIndex].answerOptions.filter((_, idx) => idx !== optionIndex)
+      };
+      setEditQuizQuestions(updatedQuestions);
+    }
+  };
+
+  const handleUpdateQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuizId || !editQuizTitle || editQuizQuestions.length === 0) {
+      setError('Le titre et au moins une question sont requis.');
+      return;
+    }
+
+    // Validation: au moins une réponse correcte par question
+    for (const question of editQuizQuestions) {
+      const hasCorrectAnswer = question.answerOptions.some(opt => opt.isCorrect);
+      if (!hasCorrectAnswer) {
+        setError('Chaque question doit avoir au moins une réponse correcte.');
+        return;
+      }
+      if (question.answerOptions.length < 2) {
+        setError('Chaque question doit avoir au moins 2 options de réponse.');
+        return;
+      }
+    }
+
+    setIsUpdating(true);
+    setError('');
+
+    try {
+      const response = await updateQuiz(editingQuizId, {
+        title: editQuizTitle,
+        questions: editQuizQuestions
+      });
+      
+      if (response.success) {
+        handleCancelEdit();
+        fetchQuizzes();
+        setError('');
+      } else {
+        throw new Error('La mise à jour du quiz a échoué.');
+      }
+    } catch (err: any) {
+      setError(`Erreur lors de la mise à jour: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -192,9 +280,17 @@ const AdminPage: React.FC = () => {
                       <li key={quiz._id} className="py-4 space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-slate-800">{quiz.title}</span>
-                          <Link href={`/quiz/${quiz._id}`} className="text-sm bg-indigo-100 text-indigo-700 font-semibold py-1 px-3 rounded-full hover:bg-indigo-200">
-                            Ouvrir
-                          </Link>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleStartEdit(quiz)}
+                              className="text-sm bg-yellow-100 text-yellow-700 font-semibold py-1 px-3 rounded-full hover:bg-yellow-200"
+                            >
+                              ✏️ Modifier
+                            </button>
+                            <Link href={`/quiz/${quiz._id}`} className="text-sm bg-indigo-100 text-indigo-700 font-semibold py-1 px-3 rounded-full hover:bg-indigo-200">
+                              Ouvrir
+                            </Link>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-500 font-semibold">Lien partageable :</span>
@@ -208,7 +304,6 @@ const AdminPage: React.FC = () => {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(shareableLink);
-                              // Optional: show a toast notification
                             }}
                             className="text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1 px-3 rounded"
                             title="Copier le lien"
@@ -261,6 +356,170 @@ const AdminPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Dialog Modal pour l'édition */}
+      {isEditDialogOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+            onClick={handleCancelEdit}
+          ></div>
+          
+          {/* Modal */}
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-yellow-50">
+                <h3 className="text-xl font-bold text-yellow-800">Modification du Quiz</h3>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-slate-400 hover:text-slate-600 text-2xl font-bold"
+                  disabled={isUpdating}
+                >
+                  ×
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <form id="edit-quiz-form" onSubmit={handleUpdateQuiz} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Titre du Quiz</label>
+                    <input
+                      type="text"
+                      value={editQuizTitle}
+                      onChange={(e) => setEditQuizTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {editQuizQuestions.map((question, qIdx) => (
+                      <div key={qIdx} className="bg-slate-50 p-4 rounded border border-slate-200 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold text-slate-700">Question {qIdx + 1}</h4>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveQuestion(qIdx)}
+                            className="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded hover:bg-red-200"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Question</label>
+                          <textarea
+                            value={question.question}
+                            onChange={(e) => handleUpdateQuestion(qIdx, 'question', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-300 rounded text-sm bg-white"
+                            rows={2}
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Indice</label>
+                          <input
+                            type="text"
+                            value={question.hint}
+                            onChange={(e) => handleUpdateQuestion(qIdx, 'hint', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+                        
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="block text-xs font-medium text-slate-600">Options de réponse</label>
+                            <button
+                              type="button"
+                              onClick={() => handleAddAnswerOption(qIdx)}
+                              className="text-xs bg-green-100 text-green-700 font-semibold py-1 px-2 rounded hover:bg-green-200"
+                            >
+                              + Ajouter
+                            </button>
+                          </div>
+                          {question.answerOptions.map((option, optIdx) => (
+                            <div key={optIdx} className="mb-2 p-2 bg-white rounded border border-slate-200">
+                              <div className="flex items-center gap-2 mb-1">
+                                <input
+                                  type="checkbox"
+                                  checked={option.isCorrect}
+                                  onChange={(e) => handleUpdateAnswerOption(qIdx, optIdx, 'isCorrect', e.target.checked)}
+                                  className="rounded"
+                                />
+                                <span className="text-xs font-medium text-slate-600">Réponse correcte</span>
+                                {question.answerOptions.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAnswerOption(qIdx, optIdx)}
+                                    className="ml-auto text-xs text-red-600 hover:text-red-800"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="text"
+                                value={option.text}
+                                onChange={(e) => handleUpdateAnswerOption(qIdx, optIdx, 'text', e.target.value)}
+                                placeholder="Texte de la réponse"
+                                className="w-full px-2 py-1 border border-slate-300 rounded text-sm mb-1"
+                                required
+                              />
+                              <textarea
+                                value={option.rationale}
+                                onChange={(e) => handleUpdateAnswerOption(qIdx, optIdx, 'rationale', e.target.value)}
+                                placeholder="Rationalité (explication)"
+                                className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
+                                rows={2}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddQuestion}
+                      className="text-sm bg-green-100 text-green-700 font-semibold py-2 px-4 rounded hover:bg-green-200"
+                    >
+                      + Ajouter une question
+                    </button>
+                  </div>
+                  
+                  {error && <p className="text-red-500 text-sm">{error}</p>}
+                </form>
+              </div>
+              
+              {/* Footer */}
+              <div className="flex gap-2 p-6 border-t border-slate-200 bg-slate-50">
+                <button
+                  type="submit"
+                  form="edit-quiz-form"
+                  disabled={isUpdating}
+                  className="flex-1 bg-yellow-600 text-white font-semibold py-2 px-4 rounded hover:bg-yellow-700 disabled:bg-yellow-300"
+                >
+                  {isUpdating ? 'Mise à jour...' : 'Enregistrer les modifications'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={isUpdating}
+                  className="bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded hover:bg-slate-300 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
