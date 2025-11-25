@@ -114,6 +114,17 @@ const AdminPage: React.FC = () => {
     setError('');
   };
 
+  const handleCopyQuizJson = (quiz: Quiz & { _id: string }) => {
+    const quizJson = {
+      quiz: quiz.questions
+    };
+    const jsonString = JSON.stringify(quizJson, null, 2);
+    navigator.clipboard.writeText(jsonString);
+    // Optionnel: afficher un message de confirmation
+    setError('');
+    // On pourrait ajouter un toast ici
+  };
+
   const handleUpdateQuestion = (questionIndex: number, field: keyof Question, value: any) => {
     const updatedQuestions = [...editQuizQuestions];
     if (field === 'question' || field === 'hint') {
@@ -281,6 +292,13 @@ const AdminPage: React.FC = () => {
                         <div className="flex justify-between items-center">
                           <span className="font-medium text-slate-800">{quiz.title}</span>
                           <div className="flex gap-2">
+                            <button
+                              onClick={() => handleCopyQuizJson(quiz)}
+                              className="text-sm bg-purple-100 text-purple-700 font-semibold py-1 px-3 rounded-full hover:bg-purple-200"
+                              title="Copier le JSON du quiz"
+                            >
+                              📄 Copier JSON
+                            </button>
                             <button
                               onClick={() => handleStartEdit(quiz)}
                               className="text-sm bg-yellow-100 text-yellow-700 font-semibold py-1 px-3 rounded-full hover:bg-yellow-200"
